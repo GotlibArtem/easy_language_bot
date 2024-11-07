@@ -1,0 +1,88 @@
+version: '3.9'
+
+services:
+  db:
+    image: postgres:13
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_volume:/var/lib/postgresql/data/
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $POSTGRES_USER"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  db_backup:
+    build:
+      context: .
+      dockerfile: Dockerfile.backup
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - ./backups:/backups
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  django:
+    build: .
+    command: >
+      sh -c "python language_bot_api/manage.py migrate &&
+             python language_bot_api/manage.py runserver 0.0.0.0:8000"
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    networks:
+      - app-network
+
+  django_test:
+    build: .
+    command: >
+      sh -c "pytest"
+    volumes:
+      - .:/app
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DJANGO_SETTINGS_MODULE: language_bot_api.settings
+      PYTHONPATH: "/app/language_bot_api"
+    env_file:
+      - .env
+    networks:
+      - app-network
+
+
+  # bot:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   command: python language_bot/bot.py
+  #   depends_on:
+  #     - django
+  #   env_file:
+  #     - .env
+  #   networks:
+  #     - app-network
+
+volumes:
+  postgres_volume:
+
+networks:
+  app-network:
+    external: true

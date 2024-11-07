@@ -1,0 +1,2 @@
+# Выполнять бэкап каждую пятницу в 18:00
+0 18 * * 5 /usr/local/bin/backup.sh >> /var/log/cron.log 2>&1

@@ -1,0 +1,20 @@
+# Используем базовый образ Alpine
+FROM alpine:latest
+
+# Устанавливаем необходимые пакеты: bash, crond (dcron), и PostgreSQL клиент
+RUN apk add --no-cache bash postgresql-client dcron tini
+
+# Копируем скрипт для бэкапов
+COPY backup.sh /usr/local/bin/backup.sh
+
+# Делаем скрипт исполняемым
+RUN chmod +x /usr/local/bin/backup.sh
+
+# Копируем файл cron jobs
+COPY crontab /etc/crontabs/root
+
+# Используем tini для корректного запуска процессов
+ENTRYPOINT ["/sbin/tini", "--"]
+
+# Запускаем cron в режиме форграунда
+CMD ["crond", "-f"]
